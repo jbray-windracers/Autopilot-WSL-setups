@@ -1,7 +1,10 @@
 {
     "version": "2.0.0",
     "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+            "AS_VENV": "${workspaceFolder}/../.venv-ardupilot"
+        }
     },
     "tasks": [
         {
@@ -13,14 +16,14 @@
         {
             "label": "AS-FCU: Configure SITL",
             "type": "shell",
-            "command": "python3 waf configure --board sitl --debug",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf configure --board sitl --debug",
             "problemMatcher": ["$gcc"],
             "group": "build"
         },
         {
             "label": "AS-FCU: Build SITL (plane)",
             "type": "shell",
-            "command": "python3 waf plane",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf plane",
             "problemMatcher": ["$gcc"],
             "group": { "kind": "build", "isDefault": true }
         },
@@ -36,39 +39,39 @@
         {
             "label": "AS-FCU: Configure CubeOrange",
             "type": "shell",
-            "command": "python3 waf configure --board CubeOrange --debug",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf configure --board CubeOrange --debug",
             "problemMatcher": ["$gcc"]
         },
         {
             "label": "AS-FCU: Build CubeOrange (plane)",
             "type": "shell",
-            "command": "python3 waf plane",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf plane",
             "problemMatcher": ["$gcc"],
             "group": "build"
         },
         {
             "label": "AS-FCU: Upload to CubeOrange",
             "type": "shell",
-            "command": "python3 waf plane --upload",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf plane --upload",
             "problemMatcher": ["$gcc"],
             "dependsOn": ["AS-FCU: Configure CubeOrange"]
         },
         {
             "label": "AS-FCU: Clean",
             "type": "shell",
-            "command": "python3 waf clean",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf clean",
             "problemMatcher": []
         },
         {
             "label": "AS-FCU: Distclean",
             "type": "shell",
-            "command": "python3 waf distclean",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf distclean",
             "problemMatcher": []
         },
         {
             "label": "AS-FCU: List boards",
             "type": "shell",
-            "command": "python3 waf list_boards",
+            "command": "source \"$AS_VENV/bin/activate\" && python3 waf list_boards",
             "problemMatcher": []
         }
     ]

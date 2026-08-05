@@ -100,18 +100,19 @@ clone_repo() {
 
 clone_repo AS-FCU "feat/MST-2201-WSL-Build"
 clone_repo AS-AMU2
+clone_repo AS-ADS
 
 echo "==> Deploying VS Code tasks/launch/IntelliSense config (not committed to the firmware repos)"
-for name in AS-FCU AS-AMU2; do
+for name in AS-FCU AS-AMU2 AS-ADS; do
     mkdir -p "$REPOS_DIR/$name/.vscode"
     cp -f "$SCRIPT_DIR/vscode-templates/$name/"*.json "$REPOS_DIR/$name/.vscode/"
     # keep .vscode out of `git status` without touching the repo's tracked .gitignore
     grep -qxF '.vscode/' "$REPOS_DIR/$name/.git/info/exclude" 2>/dev/null || \
         echo '.vscode/' >> "$REPOS_DIR/$name/.git/info/exclude"
 done
-cp -f "$SCRIPT_DIR/vscode-templates/amu-fcu.code-workspace" "$REPOS_DIR/"
+cp -f "$SCRIPT_DIR/vscode-templates/avionics.code-workspace" "$REPOS_DIR/"
 
-for repo in AS-FCU AS-AMU2; do
+for repo in AS-FCU AS-AMU2 AS-ADS; do
     echo "==> Ensuring submodules are up to date for $repo"
     ( cd "$REPOS_DIR/$repo" && GIT_SSH_COMMAND="ssh -o BatchMode=yes" git submodule update --init --recursive ) \
         || echo "!!  Submodule update failed for $repo - check SSH key / GitHub org access, then re-run this script."
@@ -137,10 +138,11 @@ fi
 echo "############################################################"
 echo "  Done. Next steps:"
 echo "  1. Open a NEW WSL terminal (for the dialout group to apply)"
-echo "  2. cd ~/repos && code amu-fcu.code-workspace"
-echo "  3. Run 'apvenv' in a terminal to activate the Python venv before"
-echo "     using waf, or rely on VS Code's configured interpreter."
-echo "  4. Build via Ctrl+Shift+B, or the Run Task command palette entry."
+echo "  2. cd ~/repos && code avionics.code-workspace"
+echo "  3. Build via Ctrl+Shift+B, or the Run Task command palette entry -"
+echo "     AS-FCU's waf tasks activate the Python venv automatically."
+echo "     Run 'apvenv' in a terminal only if you want to invoke waf/python"
+echo "     manually outside of VS Code's tasks."
 echo "  See dev-setup/SETUP.md for the full guide (hardware debug, USB"
 echo "  passthrough, troubleshooting)."
 echo "############################################################"

@@ -1,7 +1,8 @@
 {
     "folders": [
         { "path": "AS-FCU" },
-        { "path": "AS-AMU2" }
+        { "path": "AS-AMU2" },
+        { "path": "AS-ADS" }
     ],
     "settings": {
         "cortex-debug.openocdPath": "/usr/bin/openocd",

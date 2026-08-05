@@ -12,3 +12,8 @@ hit enter, let it cook
 terminal > configure
 terminal > build
 terminal > run
+
+
+
+trouble shooting
+you might need to change the submodule links to ssh

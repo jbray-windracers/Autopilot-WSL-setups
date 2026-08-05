@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "${env:HOME}/repos/.venv-ardupilot/bin/python3",
+    "python.defaultInterpreterPath": "${workspaceFolder}/../.venv-ardupilot/bin/python3",
     "C_Cpp.default.configurationProvider": "ms-vscode.cpptools",
     "files.associations": {
         "wscript": "python"

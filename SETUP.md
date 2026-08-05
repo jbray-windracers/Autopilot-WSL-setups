@@ -1,12 +1,14 @@
-# Dev Environment Setup — AS-FCU & AS-AMU2
+# Dev Environment Setup — AS-FCU, AS-AMU2 & AS-ADS
 
-Target workflow: **VS Code + WSL2 (Ubuntu)**, native Linux toolchains for both
+Target workflow: **VS Code + WSL2 (Ubuntu)**, native Linux toolchains for all
 repos, with optional live hardware debugging over USB passthrough.
 
 - **AS-FCU** — ArduPilot-derived flight control firmware (waf build). Builds
   `sitl` (native executable, no hardware) or `CubeOrange` (STM32H743, ARM
   cross-compile).
 - **AS-AMU2** — ChibiOS actuator-node firmware (plain Makefile, STM32F407,
+  ARM cross-compile).
+- **AS-ADS** — ChibiOS air-data-node firmware (plain Makefile, STM32F407,
   ARM cross-compile).
 
 This whole `dev-setup/` folder is **self-contained and portable** — it never
@@ -37,17 +39,17 @@ git-clone it onto any machine, with any GitHub account that has
      and prints the public key to add at https://github.com/settings/keys
      under whichever GitHub account will be used (needed once per machine,
      to fetch the private repos/submodules).
-   - `git clone`s AS-FCU and AS-AMU2 straight from GitHub into `~/repos`
-     (native Linux filesystem, for build performance — WSL builds against
-     `/mnt/c/...` are much slower), then initialises submodules.
+   - `git clone`s AS-FCU, AS-AMU2 and AS-ADS straight from GitHub into
+     `~/repos` (native Linux filesystem, for build performance — WSL builds
+     against `/mnt/c/...` are much slower), then initialises submodules.
    - Deploys the `.vscode/` tasks/launch/IntelliSense config from
      `dev-setup/vscode-templates/` into each cloned repo. **These are not
-     committed to AS-FCU/AS-AMU2** — the script also adds `.vscode/` to each
-     repo's local `.git/info/exclude` so it never shows up in `git status`
-     or diffs, and there is nothing to commit or push. See §3.
+     committed to AS-FCU/AS-AMU2/AS-ADS** — the script also adds `.vscode/`
+     to each repo's local `.git/info/exclude` so it never shows up in
+     `git status` or diffs, and there is nothing to commit or push. See §3.
    - Creates a Python venv at `~/repos/.venv-ardupilot` with all SITL/waf
      Python dependencies.
-3. Open the workspace: from a WSL terminal, `cd ~/repos && code amu-fcu.code-workspace`
+3. Open the workspace: from a WSL terminal, `cd ~/repos && code avionics.code-workspace`
    (this launches VS Code in Remote-WSL mode automatically).
 
 That's it — from here on, everything is driven from **Terminal ▸ Run Task**
@@ -62,7 +64,16 @@ differs from the defaults:
 | `GIT_PROTOCOL` | `ssh` | `ssh` or `https` — use `https` if you prefer a GitHub PAT/credential-manager login over SSH keys |
 | `REPOS_DIR` | `$HOME/repos` | Where repos are cloned to |
 
+Note: the AS-FCU `.vscode/tasks.json` locates the venv relative to the repo
+(`${workspaceFolder}/../.venv-ardupilot`), so a custom `REPOS_DIR` is picked
+up automatically without editing any templates.
+
 ## 2. Day-to-day tasks
+
+All `AS-FCU` waf tasks automatically activate the `~/repos/.venv-ardupilot`
+venv before running (`source .venv-ardupilot/bin/activate && python3 waf ...`)
+— you never need to activate it yourself just to build/configure from VS
+Code's Run Task/`Ctrl+Shift+B`.
 
 ### AS-FCU (SITL — no hardware needed)
 | Task | What it does |
@@ -87,7 +98,17 @@ IntelliSense for AS-AMU2 needs a `compile_commands.json`; run task
 new source files) — it's not produced by the Makefile automatically the way
 waf produces one for AS-FCU.
 
-## 3. Hardware debugging (ST-Link / CubeOrange / AMU2) via USB passthrough
+### AS-ADS
+`AS-ADS: Init submodules` (first time only) → `Ctrl+Shift+B` (`AS-ADS: Build`)
+→ `F5` → *AS-ADS: Debug (OpenOCD + ST-Link)*, or `AS-ADS: Flash (dfu-util)`
+if you just want to program it without debugging.
+
+IntelliSense for AS-ADS needs a `compile_commands.json`; run task
+`AS-ADS: Generate compile_commands.json (bear)` once (and again after adding
+new source files) — same caveat as AS-AMU2, it's not produced by the
+Makefile automatically.
+
+## 3. Hardware debugging (ST-Link / CubeOrange / AMU2 / ADS) via USB passthrough
 
 WSL2 doesn't see USB devices by default, so the debug probe has to be
 attached from Windows using **usbipd-win**:
@@ -119,16 +140,16 @@ have re-claimed it with its default driver.
 ## 4. Distributing this to other machines
 
 Everything needed lives in this `dev-setup/` folder — it doesn't reference
-AS-FCU/AS-AMU2 checkouts, usernames, or machine-specific paths. To roll this
-out to a team on different machines/GitHub accounts:
+AS-FCU/AS-AMU2/AS-ADS checkouts, usernames, or machine-specific paths. To
+roll this out to a team on different machines/GitHub accounts:
 
 - **Easiest:** zip this folder (or put it in a shared drive/USB stick) and
   copy it onto each machine, then run `bash dev-setup/wsl-bootstrap.sh`.
 - **Recommended for ongoing maintenance:** push `dev-setup/` as its own small
   git repo (e.g. `DistributedAvionics/dev-setup`), so updates to tasks/launch
   configs or the bootstrap script reach everyone with a `git pull`. This repo
-  is independent of AS-FCU/AS-AMU2 and doesn't require push access to either
-  of them.
+  is independent of AS-FCU/AS-AMU2/AS-ADS and doesn't require push access to
+  any of them.
 - Each machine/account still needs its **own SSH key** added to whichever
   GitHub account is used there (the script generates one per machine — keys
   are never shared between machines).
