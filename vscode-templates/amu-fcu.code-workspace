@@ -1,0 +1,19 @@
+{
+    "folders": [
+        { "path": "AS-FCU" },
+        { "path": "AS-AMU2" }
+    ],
+    "settings": {
+        "cortex-debug.openocdPath": "/usr/bin/openocd",
+        "terminal.integrated.defaultProfile.linux": "bash"
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-vscode-remote.remote-wsl",
+            "ms-vscode.cpptools",
+            "ms-vscode.cpptools-extension-pack",
+            "marus25.cortex-debug",
+            "ms-python.python"
+        ]
+    }
+}

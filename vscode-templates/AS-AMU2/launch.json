@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "AS-AMU2: Debug (OpenOCD + ST-Link)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/AMU2.elf",
+            "configFiles": ["interface/stlink.cfg", "target/stm32f4x.cfg"],
+            "device": "STM32F407VG",
+            "runToEntryPoint": "main",
+            "preLaunchTask": "AS-AMU2: Build"
+        },
+        {
+            "name": "AS-AMU2: Attach (OpenOCD + ST-Link)",
+            "type": "cortex-debug",
+            "request": "attach",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/AMU2.elf",
+            "configFiles": ["interface/stlink.cfg", "target/stm32f4x.cfg"],
+            "device": "STM32F407VG"
+        }
+    ]
+}
