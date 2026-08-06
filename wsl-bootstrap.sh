@@ -134,9 +134,12 @@ install_stm32cubeprogrammer() {
     fi
 
     chmod +x "$setup"
+    mkdir -p "$prefix"
     echo "    running silent installer -> $prefix"
     "$setup" -q -dir "$prefix" || {
-        echo "!!  STM32CubeProgrammer silent install failed - install it manually, then re-run."
+        echo "!!  STM32CubeProgrammer silent install failed (exit code: $?)"
+        echo "    Try running manually:"
+        echo "      $setup -q -dir $prefix"
         rm -rf "$tmp"
         return
     }
