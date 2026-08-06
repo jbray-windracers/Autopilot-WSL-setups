@@ -134,6 +134,7 @@ install_stm32cubeprogrammer() {
     fi
 
     chmod +x "$setup"
+    rm -rf "$prefix"
     mkdir -p "$prefix"
     echo "    running silent installer -> $prefix"
     "$setup" -q -dir "$prefix" || {
