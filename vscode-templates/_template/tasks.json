@@ -8,14 +8,21 @@
     "tasks": [
         {
             "label": "__REPO__: Build",
-            "detail": "make -> build/__NAME__.{elf,bin,hex,dfu,dmp,list,map} (bear also refreshes compile_commands.json for IntelliSense)",
+            "detail": "make -> build/__NAME__.{elf,bin,hex,dfu,dmp,list,map}",
             "type": "shell",
-            "command": "bear -- make -j$(nproc)",
+            "command": "make -j$(nproc)",
             "problemMatcher": ["$gcc"],
             "group": {
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "label": "__REPO__: Generate compile_commands.json (bear)",
+            "detail": "Refresh IntelliSense: make clean && bear -- make -j$(nproc)",
+            "type": "shell",
+            "command": "make clean && bear -- make -j$(nproc)",
+            "problemMatcher": ["$gcc"]
         },
         {
             "label": "__REPO__: Flash",
