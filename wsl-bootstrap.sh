@@ -27,7 +27,8 @@ echo "==> Installing system packages (one sudo prompt)"
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends \
     build-essential ccache git python3 python3-venv python3-dev python3-pip \
-    gcc-arm-none-eabi gdb-multiarch openocd dfu-util stlink-tools bear \
+    gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+    gdb-multiarch openocd dfu-util stlink-tools usbutils bear \
     libtool libtool-bin libxml2-dev libxslt1-dev pkg-config \
     rsync xterm openssh-client
 
@@ -69,6 +70,37 @@ configure_wsl_mirrored_networking() {
 }
 configure_wsl_mirrored_networking
 
+configure_usbipd_passthrough() {
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        echo "!!  Could not reach powershell.exe (WSL interop) - skipping usbipd-win check."
+        return
+    fi
+
+    echo "==> Checking for usbipd-win (USB/IP passthrough) on the Windows host"
+    if powershell.exe -NoProfile -Command "Get-Command usbipd -ErrorAction Stop" >/dev/null 2>&1; then
+        echo "    already installed"
+    else
+        echo "    installing usbipd-win via winget (a Windows admin prompt may appear - please accept it)"
+        powershell.exe -NoProfile -Command \
+            "winget install --id dorssel.usbipd-win -e --accept-source-agreements --accept-package-agreements" \
+            || echo "!!  usbipd-win install failed/needs manual install - see https://github.com/dorssel/usbipd-win"
+    fi
+
+    echo "############################################################"
+    echo "  USB passthrough (ST-Link / DFU bootloader) is done from WINDOWS, not WSL:"
+    echo "  1. One-time per device, in an ELEVATED PowerShell:"
+    echo "       usbipd list                 # find the BUSID"
+    echo "       usbipd bind --busid <BUSID>"
+    echo "  2. Every time you plug it in, from a normal PowerShell:"
+    echo "       dev-setup\\attach-usb-to-wsl.ps1"
+    echo "  3. Verify inside WSL with 'lsusb' (needs a NEW WSL terminal the"
+    echo "     first time, for the usbutils package install to take effect)."
+    echo "  To flash via dfu-util, the board must be in its DFU bootloader"
+    echo "  (BOOT0 held during reset) - dfu-util cannot trigger this remotely."
+    echo "############################################################"
+}
+configure_usbipd_passthrough
+
 echo "==> Ensuring an SSH key exists for GitHub access"
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
     mkdir -p "$HOME/.ssh"
@@ -100,7 +132,7 @@ clone_repo() {
 
 clone_repo AS-FCU "feat/MST-2201-WSL-Build"
 clone_repo AS-AMU2
-clone_repo AS-ADS
+clone_repo AS-ADS "feat/MST-2201-WSL-Build"
 
 echo "==> Deploying VS Code tasks/launch/IntelliSense config (not committed to the firmware repos)"
 for name in AS-FCU AS-AMU2 AS-ADS; do

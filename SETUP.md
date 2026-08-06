@@ -28,8 +28,12 @@ git-clone it onto any machine, with any GitHub account that has
    ```
    This single script (idempotent, re-runnable, no hardcoded paths/usernames):
    - Installs all required packages: `gcc-arm-none-eabi`, `openocd`,
-     `gdb-multiarch`, `dfu-util`, `stlink-tools`, `bear`, build tools (one
-     sudo password prompt).
+     `gdb-multiarch`, `dfu-util`, `stlink-tools`, `usbutils`, `bear`, build
+     tools (one sudo password prompt).
+   - Checks for **usbipd-win** on the Windows host and installs it via
+     `winget` if missing (a Windows admin/UAC prompt may appear the first
+     time — accept it). This is the tool that lets WSL see USB devices at
+     all; see [§3](#3-hardware-debugging-st-link-cubeorange-amu2-ads-via-usb-passthrough).
    - Checks Windows' `.wslconfig` for WSL2 **mirrored networking mode**
      (`networkingMode=mirrored`) and enables it if not already set — needed
      for reliable USB passthrough / probe connectivity. If this gets changed,
@@ -110,16 +114,20 @@ Makefile automatically.
 
 ## 3. Hardware debugging (ST-Link / CubeOrange / AMU2 / ADS) via USB passthrough
 
-WSL2 doesn't see USB devices by default, so the debug probe has to be
-attached from Windows using **usbipd-win**:
+WSL2 doesn't see USB devices by default, so the debug probe (or board, when
+flashing directly over its USB/DFU bootloader) has to be attached from
+Windows using **usbipd-win**:
 
-1. **One-time, on Windows (elevated PowerShell):**
+1. **One-time, on Windows:** `wsl-bootstrap.sh` installs `usbipd-win`
+   automatically via `winget` (accept the UAC prompt if one appears). To do
+   it manually instead, run in PowerShell:
    ```powershell
-   winget install usbipd
+   winget install --id dorssel.usbipd-win -e --accept-source-agreements --accept-package-agreements
    ```
-2. **One-time per device**, plug in the probe, then in an elevated PowerShell:
+2. **One-time per device**, plug in the probe/board, then in an **elevated**
+   PowerShell:
    ```powershell
-   usbipd list                 # find the BUSID of your ST-Link/CMSIS-DAP
+   usbipd list                 # find the BUSID of your ST-Link/CMSIS-DAP/board
    usbipd bind --busid <BUSID>
    ```
 3. **Every time you plug it in / start a session** (no elevation needed), run
@@ -127,15 +135,22 @@ attached from Windows using **usbipd-win**:
    ```powershell
    dev-setup\attach-usb-to-wsl.ps1
    ```
-   This lists devices, matches common probe names (ST-Link, CMSIS-DAP, Black
-   Magic) and attaches them to your WSL distro. Verify inside WSL with
-   `lsusb`.
+   This lists devices, matches common probe/board names (ST-Link, CMSIS-DAP,
+   Black Magic, or a plain USB serial/virtual COM port) and attaches them to
+   your WSL distro (`usbipd attach --busid <BUSID> --wsl=<Distro>` — v5+
+   syntax). Verify inside WSL with `lsusb` (open a **new** WSL terminal the
+   first time, so the `usbutils` package install takes effect).
 4. Press `F5` in VS Code (Remote-WSL window) and pick the matching Cortex-Debug
-   configuration. OpenOCD + `arm-none-eabi-gdb`/`gdb-multiarch` run entirely
-   inside WSL.
+   configuration, or run the `Flash (dfu-util)` task. OpenOCD +
+   `arm-none-eabi-gdb`/`gdb-multiarch`/`dfu-util` run entirely inside WSL.
 
 If `usbipd attach` reports the device is busy, unplug/replug it — Windows may
 have re-claimed it with its default driver.
+
+**Flashing over dfu-util specifically** requires the board to actually be in
+its STM32 DFU bootloader (hold `BOOT0` while pressing/releasing reset) — a
+board enumerated as a normal USB-serial/virtual COM port (`dfu-util -l`
+returns nothing) is not in bootloader mode yet and can't be flashed.
 
 ## 4. Distributing this to other machines
 
