@@ -97,8 +97,9 @@ install_stm32cubeprogrammer() {
         installer="$STM32CUBEPROG_INSTALLER"
     else
         installer="$(find "$SCRIPT_DIR/installers" -maxdepth 1 \
-            \( -iname '*stm32cubeprg*lin*.zip' -o -iname 'SetupSTM32CubeProgrammer*.linux' \) \
+            \( -iname '*stm32cubeprg*lin*.zip' -o -iname 'SetupSTM32CubeProgrammer*lin*.zip' -o -iname 'SetupSTM32CubeProgrammer*.linux' \) \
             2>/dev/null | head -n1 || true)"
+        echo "    [DEBUG] find result: '$installer'"
     fi
 
     if [ -z "$installer" ]; then
