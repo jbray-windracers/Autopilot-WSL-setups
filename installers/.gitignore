@@ -1,0 +1,6 @@
+# Keep this folder in git, but never commit the ST bundle itself.
+*.zip
+*.linux
+SetupSTM32CubeProgrammer*
+!README.md
+!.gitignore

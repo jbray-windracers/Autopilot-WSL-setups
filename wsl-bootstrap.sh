@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# One-shot dev-environment bootstrap for AS-FCU (ArduPilot-based) + AS-AMU2 (ChibiOS)
+# One-shot dev-environment bootstrap for the DistributedAvionics STM32F407
+# ChibiOS firmware repos (AS-ADS, AS-PDS, AS-VPS, AS-DCU, AS-BCU, AS-AMU,
+# AS-AMU2, AS-RFS, AS-USM, AS-UHMS2, AS-OBS).
 #
-# Designed to be fully portable: run this on ANY machine/WSL distro, with
-# ANY GitHub account that has org access - it never depends on a pre-existing
-# local checkout. Clone/copy this dev-setup/ folder anywhere and run:
+# Every repo builds the same way (plain Makefile + ChibiOS), flashes the same
+# way (STM32_Programmer_CLI over SWD/ST-Link) and debugs the same way
+# (OpenOCD + Cortex-Debug). Each repo stays fully self-contained: it gets its
+# own .vscode/ (Build / Flash tasks + Debug launch), and there is NO combined
+# VS Code workspace file - open each repo folder on its own.
+#
+# Designed to be fully portable: run this on ANY machine/WSL distro, with ANY
+# GitHub account that has org access - it never depends on a pre-existing local
+# checkout. Clone/copy this dev-setup/ folder anywhere and run:
 #   bash wsl-bootstrap.sh
 # Safe to re-run - every step is idempotent.
 set -euo pipefail
@@ -11,8 +19,24 @@ set -euo pipefail
 GITHUB_ORG="${GITHUB_ORG:-DistributedAvionics}"
 GIT_PROTOCOL="${GIT_PROTOCOL:-ssh}"   # ssh | https
 REPOS_DIR="${REPOS_DIR:-$HOME/repos}"
-VENV_DIR="$REPOS_DIR/.venv-ardupilot"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# All repos are the same STM32F407 ChibiOS/Makefile shape. The Makefile
+# PROJECT / build output name is the repo name minus the "AS-" prefix
+# (AS-PDS -> build/PDS.elf), which is how the .vscode templates are filled in.
+REPOS=(
+    AS-ADS
+    AS-PDS
+    AS-VPS
+    AS-DCU
+    AS-BCU
+    AS-AMU
+    AS-AMU2
+    AS-RFS
+    AS-USM
+    AS-UHMS2
+    AS-OBS
+)
 
 repo_url() {
     local name="$1"
@@ -26,11 +50,10 @@ repo_url() {
 echo "==> Installing system packages (one sudo prompt)"
 sudo apt-get update -qq
 sudo apt-get install -y --no-install-recommends \
-    build-essential ccache git python3 python3-venv python3-dev python3-pip \
+    build-essential ccache git \
     gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
-    gdb-multiarch openocd dfu-util stlink-tools usbutils bear \
-    libtool libtool-bin libxml2-dev libxslt1-dev pkg-config \
-    rsync xterm openssh-client
+    gdb-multiarch openocd stlink-tools dfu-util usbutils bear \
+    libusb-1.0-0 unzip openssh-client
 
 echo "==> Registering arm-none-eabi toolchain with ccache"
 sudo ln -sf "$(command -v ccache)" /usr/lib/ccache/arm-none-eabi-gcc
@@ -38,6 +61,95 @@ sudo ln -sf "$(command -v ccache)" /usr/lib/ccache/arm-none-eabi-g++
 
 echo "==> Adding $USER to the dialout group (serial/USB access)"
 sudo usermod -a -G dialout "$USER"
+
+# ---------------------------------------------------------------------------
+# STM32CubeProgrammer (provides STM32_Programmer_CLI, used by the Flash task)
+# ---------------------------------------------------------------------------
+# ST gate the download behind a login form, so there is no stable public URL to
+# curl blindly. This installs it automatically when it can get hold of the
+# bundle, in priority order:
+#   1. Already on PATH                       -> nothing to do
+#   2. $STM32CUBEPROG_URL set                -> download + silent install
+#   3. $STM32CUBEPROG_INSTALLER set          -> use that local .zip or .linux
+#   4. a bundle dropped in dev-setup/installers/  -> use it
+#   5. none of the above                     -> print instructions, carry on
+# The silent installer is install4j-based: `-q` (unattended) + `-dir <path>`.
+install_stm32cubeprogrammer() {
+    if command -v STM32_Programmer_CLI >/dev/null 2>&1; then
+        echo "==> STM32_Programmer_CLI already on PATH, skipping install"
+        return
+    fi
+
+    echo "==> Installing STM32CubeProgrammer (for the Flash task)"
+    local prefix="$HOME/STM32CubeProgrammer"
+    local tmp installer=""
+    tmp="$(mktemp -d)"
+
+    if [ -n "${STM32CUBEPROG_URL:-}" ]; then
+        echo "    downloading from \$STM32CUBEPROG_URL"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fL "$STM32CUBEPROG_URL" -o "$tmp/cubeprog.zip" || true
+        else
+            wget -O "$tmp/cubeprog.zip" "$STM32CUBEPROG_URL" || true
+        fi
+        [ -s "$tmp/cubeprog.zip" ] && installer="$tmp/cubeprog.zip"
+    elif [ -n "${STM32CUBEPROG_INSTALLER:-}" ] && [ -e "${STM32CUBEPROG_INSTALLER}" ]; then
+        installer="$STM32CUBEPROG_INSTALLER"
+    else
+        installer="$(find "$SCRIPT_DIR/installers" -maxdepth 1 \
+            \( -iname '*stm32cubeprg*lin*.zip' -o -iname 'SetupSTM32CubeProgrammer*.linux' \) \
+            2>/dev/null | head -n1 || true)"
+    fi
+
+    if [ -z "$installer" ]; then
+        echo "############################################################"
+        echo "  STM32CubeProgrammer bundle not found - the 'Flash' task"
+        echo "  won't work until STM32_Programmer_CLI is on PATH. Build and"
+        echo "  Debug (OpenOCD) still work without it."
+        echo "  Grab the Linux package (login required) from:"
+        echo "    https://www.st.com/en/development-tools/stm32cubeprog.html"
+        echo "  then re-run this script one of these ways:"
+        echo "    STM32CUBEPROG_URL=<direct-or-mirror-url> bash wsl-bootstrap.sh"
+        echo "    STM32CUBEPROG_INSTALLER=/path/to/en.stm32cubeprg-lin*.zip bash wsl-bootstrap.sh"
+        echo "    # or just drop the .zip in dev-setup/installers/ and re-run"
+        echo "############################################################"
+        rm -rf "$tmp"
+        return
+    fi
+
+    # Unzip if we were handed the ST .zip; otherwise it's the .linux directly.
+    local setup="$installer"
+    case "$installer" in
+        *.zip)
+            unzip -oq "$installer" -d "$tmp/extracted"
+            setup="$(find "$tmp/extracted" -maxdepth 2 -iname 'SetupSTM32CubeProgrammer*.linux' | head -n1 || true)"
+            ;;
+    esac
+
+    if [ -z "$setup" ] || [ ! -e "$setup" ]; then
+        echo "!!  Could not locate the SetupSTM32CubeProgrammer*.linux installer inside the bundle - skipping."
+        rm -rf "$tmp"
+        return
+    fi
+
+    chmod +x "$setup"
+    echo "    running silent installer -> $prefix"
+    "$setup" -q -dir "$prefix" || {
+        echo "!!  STM32CubeProgrammer silent install failed - install it manually, then re-run."
+        rm -rf "$tmp"
+        return
+    }
+
+    sudo ln -sf "$prefix/bin/STM32_Programmer_CLI" /usr/local/bin/STM32_Programmer_CLI
+    # Non-root ST-Link access.
+    if ls "$prefix"/Drivers/rules/*.rules >/dev/null 2>&1; then
+        sudo cp -f "$prefix"/Drivers/rules/*.rules /etc/udev/rules.d/ 2>/dev/null || true
+        sudo udevadm control --reload-rules 2>/dev/null || true
+    fi
+    rm -rf "$tmp"
+    echo "    STM32_Programmer_CLI installed at $prefix/bin"
+}
+install_stm32cubeprogrammer
 
 configure_wsl_mirrored_networking() {
     local win_userprofile wslconfig
@@ -87,7 +199,7 @@ configure_usbipd_passthrough() {
     fi
 
     echo "############################################################"
-    echo "  USB passthrough (ST-Link / DFU bootloader) is done from WINDOWS, not WSL:"
+    echo "  USB passthrough (ST-Link) is done from WINDOWS, not WSL:"
     echo "  1. One-time per device, in an ELEVATED PowerShell:"
     echo "       usbipd list                 # find the BUSID"
     echo "       usbipd bind --busid <BUSID>"
@@ -95,8 +207,6 @@ configure_usbipd_passthrough() {
     echo "       dev-setup\\attach-usb-to-wsl.ps1"
     echo "  3. Verify inside WSL with 'lsusb' (needs a NEW WSL terminal the"
     echo "     first time, for the usbutils package install to take effect)."
-    echo "  To flash via dfu-util, the board must be in its DFU bootloader"
-    echo "  (BOOT0 held during reset) - dfu-util cannot trigger this remotely."
     echo "############################################################"
 }
 configure_usbipd_passthrough
@@ -126,55 +236,59 @@ clone_repo() {
         echo "==> $name already present in $REPOS_DIR, skipping clone"
     else
         echo "==> Cloning $name from GitHub ($GIT_PROTOCOL)${branch:+ [branch: $branch]}"
-        git clone --recurse-submodules ${branch:+--branch "$branch"} "$(repo_url "$name")" "$REPOS_DIR/$name"
+        git clone --recurse-submodules ${branch:+--branch "$branch"} "$(repo_url "$name")" "$REPOS_DIR/$name" \
+            || echo "!!  Clone of $name failed - check SSH key / GitHub org access, then re-run this script."
     fi
 }
 
-clone_repo AS-FCU "feat/MST-2201-WSL-Build"
-clone_repo AS-AMU2
-clone_repo AS-ADS "feat/MST-2201-WSL-Build"
-
-echo "==> Deploying VS Code tasks/launch/IntelliSense config (not committed to the firmware repos)"
-for name in AS-FCU AS-AMU2 AS-ADS; do
-    mkdir -p "$REPOS_DIR/$name/.vscode"
-    cp -f "$SCRIPT_DIR/vscode-templates/$name/"*.json "$REPOS_DIR/$name/.vscode/"
-    # keep .vscode out of `git status` without touching the repo's tracked .gitignore
-    grep -qxF '.vscode/' "$REPOS_DIR/$name/.git/info/exclude" 2>/dev/null || \
-        echo '.vscode/' >> "$REPOS_DIR/$name/.git/info/exclude"
+for repo in "${REPOS[@]}"; do
+    
+    # TEMPORARY FOR MIGRATION: if branch "feat/MST-2201-WSL-Build" exists, use it
+    if git ls-remote --heads "$(repo_url "$repo")" feat/MST-2201-WSL-Build | grep -q 'refs/heads/feat/MST-2201-WSL-Build'; then
+        clone_repo "$repo" "feat/MST-2201-WSL-Build"
+    else
+        clone_repo "$repo"
+    fi
+    
 done
-cp -f "$SCRIPT_DIR/vscode-templates/avionics.code-workspace" "$REPOS_DIR/"
 
-for repo in AS-FCU AS-AMU2 AS-ADS; do
+# ---------------------------------------------------------------------------
+# Deploy per-repo VS Code config (Build / Flash tasks + Debug launch).
+# Uniform by default (vscode-templates/_template), with a per-repo override:
+# if vscode-templates/<REPO>/ exists it wins, so a repo can diverge without
+# touching the shared template. __REPO__/__NAME__ are substituted in.
+# These are NEVER committed to the firmware repos - they go in each repo's
+# local .git/info/exclude so they never show up in `git status`.
+# ---------------------------------------------------------------------------
+echo "==> Deploying per-repo VS Code Build/Flash/Debug config"
+for repo in "${REPOS[@]}"; do
+    [ -d "$REPOS_DIR/$repo/.git" ] || continue
+    name="${repo#AS-}"
+    src="$SCRIPT_DIR/vscode-templates/$repo"
+    [ -d "$src" ] || src="$SCRIPT_DIR/vscode-templates/_template"
+    dest="$REPOS_DIR/$repo/.vscode"
+    mkdir -p "$dest"
+    for f in "$src"/*.json; do
+        sed -e "s/__REPO__/$repo/g" -e "s/__NAME__/$name/g" "$f" > "$dest/$(basename "$f")"
+    done
+    grep -qxF '.vscode/' "$REPOS_DIR/$repo/.git/info/exclude" 2>/dev/null || \
+        echo '.vscode/' >> "$REPOS_DIR/$repo/.git/info/exclude"
+done
+
+for repo in "${REPOS[@]}"; do
+    [ -d "$REPOS_DIR/$repo/.git" ] || continue
     echo "==> Ensuring submodules are up to date for $repo"
     ( cd "$REPOS_DIR/$repo" && GIT_SSH_COMMAND="ssh -o BatchMode=yes" git submodule update --init --recursive ) \
         || echo "!!  Submodule update failed for $repo - check SSH key / GitHub org access, then re-run this script."
 done
 
-echo "==> Creating Python venv for SITL/waf tooling: $VENV_DIR"
-python3 -m venv "$VENV_DIR"
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
-pip install -q -U pip setuptools wheel
-pip install -q -U future lxml pymavlink pyserial MAVProxy pexpect geocoder \
-    "empy==3.3.4" ptyprocess dronecan flake8 numpy pyparsing psutil
-deactivate
-
-if ! grep -q "venv-ardupilot" "$HOME/.bashrc" 2>/dev/null; then
-    {
-        echo ""
-        echo "# ArduPilot/AS-FCU dev venv (added by wsl-bootstrap.sh)"
-        echo "alias apvenv='source $VENV_DIR/bin/activate'"
-    } >> "$HOME/.bashrc"
-fi
-
 echo "############################################################"
 echo "  Done. Next steps:"
-echo "  1. Open a NEW WSL terminal (for the dialout group to apply)"
-echo "  2. cd ~/repos && code avionics.code-workspace"
-echo "  3. Build via Ctrl+Shift+B, or the Run Task command palette entry -"
-echo "     AS-FCU's waf tasks activate the Python venv automatically."
-echo "     Run 'apvenv' in a terminal only if you want to invoke waf/python"
-echo "     manually outside of VS Code's tasks."
-echo "  See dev-setup/SETUP.md for the full guide (hardware debug, USB"
-echo "  passthrough, troubleshooting)."
+echo "  1. Open a NEW WSL terminal (for the dialout group to apply)."
+echo "  2. Open a repo, e.g.:  code ~/repos/AS-PDS"
+echo "     (each repo is standalone - no combined workspace file)."
+echo "  3. Per repo: Ctrl+Shift+B to Build, run the 'Flash' task to"
+echo "     program over ST-Link, or F5 to Debug (flashes + attaches)."
+echo "     Attach the ST-Link to WSL first (dev-setup/attach-usb-to-wsl.ps1)."
+echo "  See dev-setup/SETUP.md for the full guide."
 echo "############################################################"

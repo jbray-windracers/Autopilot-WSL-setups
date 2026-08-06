@@ -1,0 +1,25 @@
+{
+    // Deployed per-repo by dev-setup/wsl-bootstrap.sh. OpenOCD + ST-Link loads
+    // (flashes) build/__NAME__.elf, then Cortex-Debug gives variables, core
+    // registers and a memory viewer. Requires the ST-Link attached to WSL via
+    // usbipd (see dev-setup/SETUP.md).
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "__REPO__: Debug",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/__NAME__.elf",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+            "device": "STM32F407VG",
+            "runToEntryPoint": "main",
+            "preLaunchTask": "__REPO__: Build",
+            "showDevDebugOutput": "none"
+        }
+    ]
+}

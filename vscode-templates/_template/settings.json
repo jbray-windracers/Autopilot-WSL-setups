@@ -1,0 +1,9 @@
+{
+    // Debug toolchain locations for Cortex-Debug (no combined workspace file,
+    // so every repo carries its own). gdb-multiarch is what wsl-bootstrap.sh
+    // installs; arm-none-eabi objdump/objcopy live in /usr/bin.
+    "cortex-debug.openocdPath": "/usr/bin/openocd",
+    "cortex-debug.gdbPath": "gdb-multiarch",
+    "cortex-debug.armToolchainPath": "/usr/bin",
+    "terminal.integrated.defaultProfile.linux": "bash"
+}

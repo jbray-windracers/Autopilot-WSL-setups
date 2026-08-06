@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "ADS",
+            "name": "__NAME__",
             "compileCommands": "${workspaceFolder}/compile_commands.json",
             "compilerPath": "/usr/bin/arm-none-eabi-gcc",
             "cStandard": "c11",
