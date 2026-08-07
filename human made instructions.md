@@ -5,6 +5,8 @@ toolchain/make/OpenOCD as standalone xPack binaries, no admin needed for those)
 copy ssh key into github settings > ssh and GPG keys
 hit enter, let it cook
 
+install recommended extensions
+
 for flashing u can use dfuse, this setup uses stmcubeprogrammer to flash .elf for debugging
 https://www.st.com/content/st_com/en/stm32cubeprogrammer.html?tab=installer#st-get-software
 grab the Windows installer (login required), run it, then re-run

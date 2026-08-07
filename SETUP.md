@@ -66,10 +66,12 @@ git-clone it onto any machine, with any GitHub account that has
      tool paths it discovered. **These are not committed to the firmware
      repos** — the script also adds `.vscode/` to each repo's local
      `.git/info/exclude` so it never shows up in `git status` or diffs.
-2. **Open a new terminal or VS Code window** (so the PATH/environment
-   variables the script set take effect), then open a repo, e.g.
-   `code %USERPROFILE%\repos\AS-PDS`. Repeat for whichever repo you're working
-   on — one window per repo.
+2. Open a repo, e.g. `code %USERPROFILE%\repos\AS-PDS`. Repeat for whichever
+   repo you're working on — one window per repo. The Build/Flash/Debug tasks
+   and IntelliSense config have the discovered tool paths baked in directly,
+   so they work immediately — no need to reopen a terminal for the PATH
+   change to propagate (that's only needed if you want to run `make`,
+   `arm-none-eabi-gcc`, etc. by hand from an arbitrary shell).
 
 That's it — from here on, everything is driven from `Ctrl+Shift+B` (Build),
 **Terminal ▸ Run Task ▸ `<repo>: Flash`**, and `F5` (Debug).
@@ -156,18 +158,20 @@ that repo, and still substitutes everything in.
 
 ## 6. Troubleshooting
 
-- **`STM32_Programmer_CLI`/`make`/`openocd` not found when running a task:**
-  open a **new** terminal/VS Code window after running the bootstrap script,
-  so the PATH changes it made take effect.
+- **`make`/`arm-none-eabi-gcc`/`openocd`/`STM32_Programmer_CLI` not found
+  when running a task:** the `.vscode/` in that repo was deployed before a
+  tool was installed, or by an older version of the bootstrap. Re-run
+  `windows-bootstrap.ps1` — it redeploys `.vscode/` with the current tool
+  paths every time, even for already-cloned repos, then reopen the repo's VS
+  Code window.
 - **`STM32_Programmer_CLI: command not found` when flashing:**
   STM32CubeProgrammer isn't installed yet — see §4.
 - **Submodule update / clone fails with "Permission denied (publickey)":** the
   SSH key printed by the bootstrap hasn't been added to GitHub yet (or belongs
   to an account without `DistributedAvionics` access). Add it, then re-run
   `windows-bootstrap.ps1`.
-- **Debug can't find `interface/stlink.cfg` / `target/stm32f4x.cfg`:** the
-  bootstrap sets an `OPENOCD_SCRIPTS` environment variable pointing at the
-  xPack OpenOCD scripts folder — open a new terminal/VS Code window so it's
-  picked up, or re-run the bootstrap script.
+- **Debug can't find `interface/stlink.cfg` / `target/stm32f4x.cfg`:** re-run
+  `windows-bootstrap.ps1` to redeploy `launch.json`/`settings.json` with the
+  current `OPENOCD_SCRIPTS`/tool paths baked in.
 - **`STM32_Programmer_CLI`/OpenOCD "No ST-Link detected":** check Device
   Manager for a driver issue, or unplug/replug the probe.

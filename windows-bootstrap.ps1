@@ -105,13 +105,15 @@ if (-not (Test-CommandExists "python") -and -not (Test-CommandExists "py")) {
     }
 }
 
+$pyScriptsBin = $null
 if (Test-CommandExists "python" -or (Test-CommandExists "py")) {
     Write-Host "==> Installing compiledb (make -> compile_commands.json for IntelliSense)"
     $pyExe = if (Test-CommandExists "python") { "python" } else { "py" }
     & $pyExe -m pip install --user --upgrade compiledb --quiet
     try {
         $userBase = (& $pyExe -m site --user-base).Trim()
-        Add-UserPath (Join-Path $userBase "Scripts")
+        $pyScriptsBin = Join-Path $userBase "Scripts"
+        Add-UserPath $pyScriptsBin
     } catch {
         Write-Warning "Could not determine Python user Scripts dir - add it to PATH manually if 'compiledb' isn't found."
     }
@@ -342,8 +344,11 @@ foreach ($repo in $Repos) {
             -replace "__REPO__", $repo `
             -replace "__NAME__", $name `
             -replace "__ARM_GCC_BIN__", (Json-Path $armGccBin) `
+            -replace "__MAKE_BIN__", (Json-Path $makeBin) `
             -replace "__OPENOCD_BIN__", (Json-Path $openocdBin) `
-            -replace "__OPENOCD_SCRIPTS__", (Json-Path $openocdScripts) |
+            -replace "__OPENOCD_SCRIPTS__", (Json-Path $openocdScripts) `
+            -replace "__STM32PROG_BIN__", (Json-Path $stm32ProgBin) `
+            -replace "__PY_SCRIPTS__", (Json-Path $pyScriptsBin) |
             Set-Content -Path (Join-Path $destDir $_.Name) -Encoding UTF8
     }
 
