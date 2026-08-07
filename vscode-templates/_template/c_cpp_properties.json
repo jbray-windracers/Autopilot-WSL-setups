@@ -3,10 +3,10 @@
         {
             "name": "__NAME__",
             "compileCommands": "${workspaceFolder}/compile_commands.json",
-            "compilerPath": "/usr/bin/arm-none-eabi-gcc",
+            "compilerPath": "__ARM_GCC_BIN__/arm-none-eabi-gcc.exe",
             "cStandard": "c11",
             "cppStandard": "gnu++11",
-            "intelliSenseMode": "linux-gcc-arm",
+            "intelliSenseMode": "windows-gcc-arm",
             "defines": ["STM32F4xx", "CORTEX_USE_FPU=TRUE"]
         }
     ],

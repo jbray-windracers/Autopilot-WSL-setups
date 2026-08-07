@@ -1,16 +1,23 @@
 {
-    // Deployed per-repo by dev-setup/wsl-bootstrap.sh: __REPO__ -> repo folder
+    // Deployed per-repo by dev-setup/windows-bootstrap.ps1: __REPO__ -> repo folder
     // name, __NAME__ -> Makefile PROJECT / build output name (repo minus "AS-").
+    // make/compiledb/STM32_Programmer_CLI all resolve via PATH entries the
+    // bootstrap script adds (xPack arm-none-eabi-gcc/make + STM32CubeProgrammer).
     "version": "2.0.0",
     "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "shell": {
+            "executable": "powershell.exe",
+            "args": ["-NoProfile", "-Command"]
+        }
     },
     "tasks": [
         {
             "label": "__REPO__: Build",
             "detail": "make -> build/__NAME__.{elf,bin,hex,dfu,dmp,list,map}",
             "type": "shell",
-            "command": "make -j$(nproc)",
+            "command": "make",
+            "args": ["-j${env:NUMBER_OF_PROCESSORS}"],
             "problemMatcher": ["$gcc"],
             "group": {
                 "kind": "build",
@@ -18,17 +25,29 @@
             }
         },
         {
-            "label": "__REPO__: Generate compile_commands.json (bear)",
-            "detail": "Refresh IntelliSense: make clean && bear -- make -j$(nproc)",
+            "label": "__REPO__: Clean",
+            "detail": "make clean",
             "type": "shell",
-            "command": "make clean && bear -- make -j$(nproc)",
-            "problemMatcher": ["$gcc"]
+            "command": "make",
+            "args": ["clean"],
+            "problemMatcher": []
+        },
+        {
+            "label": "__REPO__: Generate compile_commands.json (compiledb)",
+            "detail": "Refresh IntelliSense: compiledb make -j<nproc>",
+            "type": "shell",
+            "command": "compiledb",
+            "args": ["make", "-j${env:NUMBER_OF_PROCESSORS}"],
+            "problemMatcher": ["$gcc"],
+            "dependsOn": ["__REPO__: Clean"],
+            "dependsOrder": "sequence"
         },
         {
             "label": "__REPO__: Flash",
             "detail": "Flash build/__NAME__.elf to the STM32F407 over SWD/ST-Link with STM32_Programmer_CLI, then reset & run",
             "type": "shell",
-            "command": "STM32_Programmer_CLI -c port=SWD mode=UR -d build/__NAME__.elf -rst",
+            "command": "STM32_Programmer_CLI",
+            "args": ["-c", "port=SWD", "mode=UR", "-d", "build/__NAME__.elf", "-rst"],
             "problemMatcher": [],
             "dependsOn": ["__REPO__: Build"],
             "dependsOrder": "sequence",

@@ -1,8 +1,8 @@
 {
-    // Deployed per-repo by dev-setup/wsl-bootstrap.sh. OpenOCD + ST-Link loads
-    // (flashes) build/__NAME__.elf, then Cortex-Debug gives variables, core
-    // registers and a memory viewer. Requires the ST-Link attached to WSL via
-    // usbipd (see dev-setup/SETUP.md).
+    // Deployed per-repo by dev-setup/windows-bootstrap.ps1. OpenOCD + ST-Link
+    // loads (flashes) build/__NAME__.elf, then Cortex-Debug gives variables,
+    // core registers and a memory viewer. The ST-Link is a plain USB device
+    // on Windows - no passthrough/attach step needed.
     "version": "0.2.0",
     "configurations": [
         {
@@ -12,6 +12,7 @@
             "servertype": "openocd",
             "cwd": "${workspaceFolder}",
             "executable": "${workspaceFolder}/build/__NAME__.elf",
+            "searchDir": ["${env:OPENOCD_SCRIPTS}"],
             "configFiles": [
                 "interface/stlink.cfg",
                 "target/stm32f4x.cfg"
