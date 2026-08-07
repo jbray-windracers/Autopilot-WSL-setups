@@ -244,7 +244,13 @@ if (-not (Test-CommandExists "ssh-keygen")) {
     $keyPath = Join-Path $sshDir "id_ed25519"
     if (-not (Test-Path $keyPath)) {
         New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
-        ssh-keygen -t ed25519 -N '""' -f $keyPath -C "$env:USERNAME@$env:COMPUTERNAME"
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            ssh-keygen -t ed25519 -N '""' -f $keyPath -C "$env:USERNAME@$env:COMPUTERNAME"
+        } finally {
+            $ErrorActionPreference = $prevEAP
+        }
         Write-Host "############################################################"
         Write-Host "  New SSH key generated on THIS machine. Add this PUBLIC key"
         Write-Host "  to the GitHub account that has $GitHubOrg org access:"
@@ -257,7 +263,15 @@ if (-not (Test-CommandExists "ssh-keygen")) {
     $knownHosts = Join-Path $sshDir "known_hosts"
     if (-not (Test-Path $knownHosts)) { New-Item -ItemType File -Path $knownHosts -Force | Out-Null }
     if (Test-CommandExists "ssh-keyscan") {
-        ssh-keyscan -H github.com 2>$null | Add-Content -Path $knownHosts
+        # ssh-keyscan writes its status line to stderr; with $ErrorActionPreference = "Stop",
+        # PowerShell treats that as a terminating error even when redirected, so relax it here.
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            ssh-keyscan -H github.com 2>$null | Add-Content -Path $knownHosts
+        } finally {
+            $ErrorActionPreference = $prevEAP
+        }
     }
 }
 
@@ -274,7 +288,14 @@ function Clone-Repo {
     $args = @("clone", "--recurse-submodules")
     if ($Branch) { $args += @("--branch", $Branch) }
     $args += @((Repo-Url $Name), $dest)
-    git @args
+    # git writes normal progress output to stderr; relax error handling to avoid treating that as a failure.
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        git @args
+    } finally {
+        $ErrorActionPreference = $prevEAP
+    }
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Clone of $Name failed - check SSH key / GitHub org access, then re-run this script."
     }
@@ -282,7 +303,13 @@ function Clone-Repo {
 
 foreach ($repo in $Repos) {
     # TEMPORARY FOR MIGRATION: if branch "feat/MST-2201-WSL-Build" exists, use it
-    $branchRef = git ls-remote --heads (Repo-Url $repo) feat/MST-2201-WSL-Build 2>$null
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $branchRef = git ls-remote --heads (Repo-Url $repo) feat/MST-2201-WSL-Build 2>$null
+    } finally {
+        $ErrorActionPreference = $prevEAP
+    }
     if ($branchRef -match "refs/heads/feat/MST-2201-WSL-Build") {
         Clone-Repo -Name $repo -Branch "feat/MST-2201-WSL-Build"
     } else {
