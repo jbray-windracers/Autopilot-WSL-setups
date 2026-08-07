@@ -65,94 +65,16 @@ sudo usermod -a -G dialout "$USER"
 # ---------------------------------------------------------------------------
 # STM32CubeProgrammer (provides STM32_Programmer_CLI, used by the Flash task)
 # ---------------------------------------------------------------------------
-# ST gate the download behind a login form, so there is no stable public URL to
-# curl blindly. This installs it automatically when it can get hold of the
-# bundle, in priority order:
-#   1. Already on PATH                       -> nothing to do
-#   2. $STM32CUBEPROG_URL set                -> download + silent install
-#   3. $STM32CUBEPROG_INSTALLER set          -> use that local .zip or .linux
-#   4. a bundle dropped in dev-setup/installers/  -> use it
-#   5. none of the above                     -> print instructions, carry on
-# The silent installer is install4j-based: `-q` (unattended) + `-dir <path>`.
 install_stm32cubeprogrammer() {
-    if command -v STM32_Programmer_CLI >/dev/null 2>&1; then
-        echo "==> STM32_Programmer_CLI already on PATH, skipping install"
-        return
-    fi
-
-    echo "==> Installing STM32CubeProgrammer (for the Flash task)"
-    local prefix="$HOME/STM32CubeProgrammer"
-    local tmp installer=""
-    tmp="$(mktemp -d)"
-
-    if [ -n "${STM32CUBEPROG_URL:-}" ]; then
-        echo "    downloading from \$STM32CUBEPROG_URL"
-        if command -v curl >/dev/null 2>&1; then
-            curl -fL "$STM32CUBEPROG_URL" -o "$tmp/cubeprog.zip" || true
-        else
-            wget -O "$tmp/cubeprog.zip" "$STM32CUBEPROG_URL" || true
-        fi
-        [ -s "$tmp/cubeprog.zip" ] && installer="$tmp/cubeprog.zip"
-    elif [ -n "${STM32CUBEPROG_INSTALLER:-}" ] && [ -e "${STM32CUBEPROG_INSTALLER}" ]; then
-        installer="$STM32CUBEPROG_INSTALLER"
-    else
-        installer="$(find "$SCRIPT_DIR/installers" -maxdepth 1 \
-            \( -iname '*stm32cubeprg*lin*.zip' -o -iname 'SetupSTM32CubeProgrammer*lin*.zip' -o -iname 'SetupSTM32CubeProgrammer*.linux' \) \
-            2>/dev/null | head -n1 || true)"
-        echo "    [DEBUG] find result: '$installer'"
-    fi
-
-    if [ -z "$installer" ]; then
-        echo "############################################################"
-        echo "  STM32CubeProgrammer bundle not found - the 'Flash' task"
-        echo "  won't work until STM32_Programmer_CLI is on PATH. Build and"
-        echo "  Debug (OpenOCD) still work without it."
-        echo "  Grab the Linux package (login required) from:"
-        echo "    https://www.st.com/en/development-tools/stm32cubeprog.html"
-        echo "  then re-run this script one of these ways:"
-        echo "    STM32CUBEPROG_URL=<direct-or-mirror-url> bash wsl-bootstrap.sh"
-        echo "    STM32CUBEPROG_INSTALLER=/path/to/en.stm32cubeprg-lin*.zip bash wsl-bootstrap.sh"
-        echo "    # or just drop the .zip in dev-setup/installers/ and re-run"
-        echo "############################################################"
-        rm -rf "$tmp"
-        return
-    fi
-
-    # Unzip if we were handed the ST .zip; otherwise it's the .linux directly.
-    local setup="$installer"
-    case "$installer" in
-        *.zip)
-            unzip -oq "$installer" -d "$tmp/extracted"
-            setup="$(find "$tmp/extracted" -maxdepth 2 -iname 'SetupSTM32CubeProgrammer*.linux' | head -n1 || true)"
-            ;;
-    esac
-
-    if [ -z "$setup" ] || [ ! -e "$setup" ]; then
-        echo "!!  Could not locate the SetupSTM32CubeProgrammer*.linux installer inside the bundle - skipping."
-        rm -rf "$tmp"
-        return
-    fi
-
-    chmod +x "$setup"
-    rm -rf "$prefix"
-    mkdir -p "$prefix"
-    echo "    running silent installer -> $prefix"
-    "$setup" -q -dir "$prefix" || {
-        echo "!!  STM32CubeProgrammer silent install failed (exit code: $?)"
-        echo "    Try running manually:"
-        echo "      $setup -q -dir $prefix"
-        rm -rf "$tmp"
-        return
-    }
-
-    sudo ln -sf "$prefix/bin/STM32_Programmer_CLI" /usr/local/bin/STM32_Programmer_CLI
-    # Non-root ST-Link access.
-    if ls "$prefix"/Drivers/rules/*.rules >/dev/null 2>&1; then
-        sudo cp -f "$prefix"/Drivers/rules/*.rules /etc/udev/rules.d/ 2>/dev/null || true
-        sudo udevadm control --reload-rules 2>/dev/null || true
-    fi
-    rm -rf "$tmp"
-    echo "    STM32_Programmer_CLI installed at $prefix/bin"
+    echo "############################################################"
+    echo "  STM32CubeProgrammer is required for the 'Flash' task."
+    echo ""
+    echo "  Download the Linux package from:"
+    echo "    https://www.st.com/content/st_com/en/stm32cubeprogrammer.html?tab=installer#st-get-software"
+    echo ""
+    echo "  Once installed, press Enter to continue..."
+    echo "############################################################"
+    read -r
 }
 install_stm32cubeprogrammer
 
