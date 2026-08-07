@@ -3,6 +3,7 @@ install wsl
 + new distro
 Ubuntu 26.04
 create login (remember password)
+    its useful to map a network drive to wsl for file access on windows side
 open a folder and copy/cone this repo
 new terminal, `bash dev-setup/wsl-bootstrap.sh`
 type password

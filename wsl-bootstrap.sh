@@ -76,7 +76,42 @@ install_stm32cubeprogrammer() {
     echo "############################################################"
     read -r
 }
+
+# The Linux installer is interactive and lets the user pick any install dir
+# (commonly $HOME/STMicroelectronics/STM32Cube/STM32CubeProgrammer), so it
+# never ends up on PATH by itself. Find the real binary and make sure
+# /usr/local/bin/STM32_Programmer_CLI (which the Flash task relies on) is a
+# valid symlink to it - fixing any stale/broken symlink from a previous
+# install in a different location.
+link_stm32_programmer_cli() {
+    local link="/usr/local/bin/STM32_Programmer_CLI"
+
+    if command -v STM32_Programmer_CLI >/dev/null 2>&1; then
+        echo "==> STM32_Programmer_CLI already on PATH: $(command -v STM32_Programmer_CLI)"
+        return
+    fi
+
+    echo "==> STM32_Programmer_CLI not found on PATH - searching for it"
+    local found
+    found="$(find "$HOME" /opt /usr/local -maxdepth 6 -type f -name STM32_Programmer_CLI -print -quit 2>/dev/null)"
+
+    if [ -z "$found" ]; then
+        echo "!!  Could not find STM32_Programmer_CLI under \$HOME, /opt or /usr/local."
+        echo "!!  The 'Flash' task will fail until STM32CubeProgrammer is installed."
+        return
+    fi
+
+    echo "    found: $found"
+    if [ -L "$link" ] && [ ! -e "$link" ]; then
+        echo "    removing stale/broken symlink at $link"
+        sudo rm -f "$link"
+    fi
+    sudo ln -sf "$found" "$link"
+    echo "    linked $link -> $found"
+}
+
 install_stm32cubeprogrammer
+link_stm32_programmer_cli
 
 configure_wsl_mirrored_networking() {
     local win_userprofile wslconfig
