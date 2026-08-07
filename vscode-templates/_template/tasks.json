@@ -1,14 +1,19 @@
 {
     // Deployed per-repo by dev-setup/windows-bootstrap.ps1: __REPO__ -> repo folder
     // name, __NAME__ -> Makefile PROJECT / build output name (repo minus "AS-").
-    // make/compiledb/STM32_Programmer_CLI all resolve via PATH entries the
-    // bootstrap script adds (xPack arm-none-eabi-gcc/make + STM32CubeProgrammer).
+    // Tool commands use absolute paths and options.env.Path is set explicitly
+    // (rather than relying on the persisted User PATH) because that only
+    // takes effect in NEW processes started after the bootstrap ran - it
+    // won't reach a terminal/VS Code window that was already open.
     "version": "2.0.0",
     "options": {
         "cwd": "${workspaceFolder}",
         "shell": {
             "executable": "powershell.exe",
             "args": ["-NoProfile", "-Command"]
+        },
+        "env": {
+            "Path": "__ARM_GCC_BIN__;__MAKE_BIN__;__OPENOCD_BIN__;__STM32PROG_BIN__;__PY_SCRIPTS__;${env:Path}"
         }
     },
     "tasks": [
@@ -16,7 +21,7 @@
             "label": "__REPO__: Build",
             "detail": "make -> build/__NAME__.{elf,bin,hex,dfu,dmp,list,map}",
             "type": "shell",
-            "command": "make",
+            "command": "__MAKE_BIN__/make.exe",
             "args": ["-j${env:NUMBER_OF_PROCESSORS}"],
             "problemMatcher": ["$gcc"],
             "group": {
@@ -28,7 +33,7 @@
             "label": "__REPO__: Clean",
             "detail": "make clean",
             "type": "shell",
-            "command": "make",
+            "command": "__MAKE_BIN__/make.exe",
             "args": ["clean"],
             "problemMatcher": []
         },
@@ -37,7 +42,7 @@
             "detail": "Refresh IntelliSense: compiledb make -j<nproc>",
             "type": "shell",
             "command": "compiledb",
-            "args": ["make", "-j${env:NUMBER_OF_PROCESSORS}"],
+            "args": ["__MAKE_BIN__/make.exe", "-j${env:NUMBER_OF_PROCESSORS}"],
             "problemMatcher": ["$gcc"],
             "dependsOn": ["__REPO__: Clean"],
             "dependsOrder": "sequence"
@@ -46,7 +51,7 @@
             "label": "__REPO__: Flash",
             "detail": "Flash build/__NAME__.elf to the STM32F407 over SWD/ST-Link with STM32_Programmer_CLI, then reset & run",
             "type": "shell",
-            "command": "STM32_Programmer_CLI",
+            "command": "__STM32PROG_BIN__/STM32_Programmer_CLI.exe",
             "args": ["-c", "port=SWD", "mode=UR", "-d", "build/__NAME__.elf", "-rst"],
             "problemMatcher": [],
             "dependsOn": ["__REPO__: Build"],
